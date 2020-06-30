@@ -1,0 +1,127 @@
+searchParam = {"email":EMAIL};
+contact = zoho.invoice.getRecords("Contacts","699059028",searchParam).get("contacts");
+contactSearch = contact.isEmpty();
+if(contactSearch == false)
+{
+	specificContact = contact.get(0);
+	contactId = specificContact.get("contact_id");
+	firstName = specificContact.get("First_Name");
+	lastName = specificContact.get("Last_Name");
+	participationCode = specificContact.get("MRWPC_Participation_Code");
+	discount = specificContact.get("Course_Discount");
+	contactDetails = zoho.invoice.getRecordById("contacts","699059028",contactId).get("contact");
+	contactPersons = contactDetails.get("contact_persons").toList();
+	for each  findCP in contactPersons
+	{
+		primaryContacts = findCP.get("is_primary_contact");
+		if(primaryContacts == true)
+		{
+			EMAIL = findCP.get("email");
+			contactPID = findCP.get("contact_person_id");
+		}
+	}
+	invoice = Map();
+	invoice.put("customer_id",contactId);
+	invoice.put("date",today);
+	cpList = List();
+	cpList.add(contactPID);
+	invoice.put("contact_persons",cpList);
+	invoice.put("line_items",{{"item_id":"2062836000000068237","quantity":"1","discount":discount}});
+	ilist = List();
+	mp = Map();
+	mp.put("gateway_name","paypal");
+	mp.put("additional_field1","standard");
+	ilist.add(mp);
+	gatewayMap = Map();
+	gatewayMap.put("payment_gateways",ilist);
+	invoice.put("payment_options",gatewayMap);
+	//info "invoice==" + invoice;
+	createInvoice = zoho.invoice.create("invoices","699059028",invoice);
+	info createInvoice;
+	code = createInvoice.get("code");
+	if(code == 0)
+	{
+		emailList = List();
+		emailList.add(EMAIL);
+		invoiceInfo = createInvoice.get("invoice");
+		invoiceId = invoiceInfo.get("invoice_id");
+		info invoiceId;
+		json = Map();
+		json.put("to_mail_ids",emailList);
+		params = Map();
+		params.put("JSONString",json);
+		
+		/* The "connection" is part of the API call, something you have to set up under CRM > Settings > Developer Space > Connections. 
+		*/
+		
+		emailInvoice = invokeurl
+		[
+			url :"https://invoice.zoho.com/api/v3/invoices/" + invoiceId + "/email?organization_id=699059028"
+			type :POST
+			parameters:params
+			connection:"zohoinvoice"
+		];
+		info emailInvoice.get("message");
+	}
+}
+else
+{
+	crmContactInfo = Map();
+	crmContactInfo.put("email",EMAIL);
+	crmContactInfo.put("contact_name",firstName + " " + lastName);
+	createContact = zoho.invoice.create("Contacts","699059028",crmContactInfo);
+	createContactInfo = createContact.get("contact");
+	createContactId = createContactInfo.get("contact_id");
+	contactPersonUpdate = Map();
+	contactPersonUpdate.put("contact_persons",{{"first_name":firstName,"last_name":lastName,"email":EMAIL}});
+	updateContactPerson = zoho.invoice.update("contacts","699059028",createContactId,contactPersonUpdate);
+	createContactPersonId = updateContactPerson.get("contact").get("contact_persons").toList();
+	info createContactPersonId;
+	for each  r in createContactPersonId
+	{
+		createContactPrimaryContact = r.get("is_primary_contact");
+		if(createContactPrimaryContact == true)
+		{
+			contactPersonEmail = r.get("email");
+			contactPersonId = r.get("contact_person_id");
+		}
+	}
+	info contactPersonEmail;
+	createContactInvoice = Map();
+	createContactInvoice.put("customer_id",createContactId);
+	createContactInvoice.put("date",today);
+	createContactPersonsList = List();
+	createContactPersonsList.add(contactPersonId);
+	createContactInvoice.put("contact_persons",createContactPersonsList);
+	createContactInvoice.put("line_items",{{"item_id":"2062836000000068237","quantity":"1","discount":discount}});
+	createContactList = List();
+	createContactMap = Map();
+	createContactMap.put("gateway_name","paypal");
+	createContactMap.put("additional_field1","standard");
+	createContactList.add(createContactMap);
+	createContactGatewayMap = Map();
+	createContactGatewayMap.put("payment_gateways",createContactList);
+	createContactInvoice.put("payment_options",createContactGatewayMap);
+	//info "invoice==" + invoice;
+	createContactCreateInvoice = zoho.invoice.create("invoices","699059028",createContactInvoice);
+	createContactCode = createContactCreateInvoice.get("code");
+	if(createContactCode == 0)
+	{
+		createContactEmailList = List();
+		createContactEmailList.add(contactPersonEmail);
+		createContactInvoiceInfo = createContactCreateInvoice.get("invoice");
+		createContactInvoiceId = createContactInvoiceInfo.get("invoice_id");
+		createContactJson = Map();
+		createContactJson.put("to_mail_ids",createContactEmailList);
+		createContactParams = Map();
+		createContactParams.put("JSONString",createContactJson);
+		createContactEmailInvoice = invokeurl
+		[
+			url :"https://invoice.zoho.com/api/v3/invoices/" + createContactInvoiceId + "/email?organization_id=699059028"
+			type :POST
+			parameters:createContactParams
+			connection:"zohoinvoice"
+		];
+		info createContactEmailInvoice.get("message");
+	}
+}
