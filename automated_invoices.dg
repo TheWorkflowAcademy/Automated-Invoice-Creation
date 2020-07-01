@@ -16,54 +16,56 @@ orgId = getOrganizations.get("organizations").get(0).get("organization_id");
 info orgId;
 // Now that we have our defined variables, we search the Invoices modules/app for Contacts with a matching email address. It should return a list of contacts (just one)
 searchParam = {"email":email};
-invoiceContact = zoho.invoice.getRecords("Contacts",orgId,searchParam).get("contacts");
-contactSearch = invoiceContact.isEmpty();
-if(contactSearch == false) 	//(not empty, get the primary contact person's info for the Invoice)
+contactSearch = zoho.invoice.getRecords("Contacts",orgId,searchParam).get("contacts");
+contactId = null;
+contactPersonId = null;
+// Check If Contact is Found
+if(!contactSearch.isEmpty()) 	//(not empty, get the primary contact person's info for the Invoice)
 {
-	specificContact = invoiceContact.get(0);
-	contactId = specificContact.get("contact_id");
+	// Get Contact Record
+	contact = contactSearch.get(0);
+	contactId = contact.get("contact_id");
 	contactDetails = zoho.invoice.getRecordById("contacts",orgId,contactId).get("contact");
 	contactPersons = contactDetails.get("contact_persons").toList();
-	for each  findCP in contactPersons
+
+	// Find Primary Contact
+	for each contactPerson in contactPersons
 	{
-		primaryContacts = findCP.get("is_primary_contact");
-		if(primaryContacts == true)
+		if(contactPerson.get("is_primary_contact"))
 		{
-			contactPID = findCP.get("contact_person_id");
+			contactPersonId = contactPerson.get("contact_person_id");
 		}
 	}
 }
 else //(list is empty, create the Contact and Contact person in Books and get the info for the Invoice)
 {
-	crmContactInfo = Map();
-	crmContactInfo.put("email",email);
-	crmContactInfo.put("contact_name",firstName + " " + lastName);
-	createContact = zoho.invoice.create("Contacts",orgId,crmContactInfo);
-	createContactInfo = createContact.get("contact");
-	contactId = createContactInfo.get("contact_id");
-	contactPersonUpdate = Map();
-	contactPersonUpdate.put("contact_persons",{{"first_name":firstName,"last_name":lastName,"email":email}});
-	updateContactPerson = zoho.invoice.update("contacts",orgId,contactId,contactPersonUpdate);
-	createContactPersonId = updateContactPerson.get("contact").get("contact_persons").toList();
-	info createContactPersonId;
-	for each  r in createContactPersonId
-	{
-		createContactPrimaryContact = r.get("is_primary_contact");
-		if(createContactPrimaryContact == true)
-		{
-			contactPID = r.get("contact_person_id");
-		}
-	}
-	info contactPID;
+	// Create Map for New Contact
+	newContactMap = Map();
+	newContactMap.put("email",email);
+	newContactMap.put("contact_name",firstName + " " + lastName);
+	newContactMap.put("contact_persons", {{"first_name":firstName,"last_name":lastName,"email":email}} );
+
+	// Create New Contact
+	createContact = zoho.invoice.create("Contacts",orgId,newContactMap);
+	contact = createContact.get("contact");
+	contactId = contact.get("contact_id");
+
+	// Get Contact Person Info
+	contactPerson = contact.get("contact_persons").get(0);
+	contactPersonId = contactPerson.get("contact_person_id");
 }
+
+// Create New Invoice
 invoice = Map();
 invoice.put("customer_id",contactId);
 invoice.put("date",today);
-cpList = List();
-cpList.add(contactPID);
-invoice.put("contact_persons",cpList);
-//in the future, show how to feed line items in from CRM or ask Kurt. Some of this was built by Zoho for the USU system. So, how do we generalize it to other Zoho accounts?
+contactPersonsList = List();
+contactPersonsList.add(contactPersonId);
+invoice.put("contact_persons",contactPersonsList);
+
 invoice.put("line_items",{{"item_id":"2062836000000068237","quantity":"1","invoice_custom_field":otherInfo}});
+
+// Set Payment Options
 //Here, tell it which payment gateways are enabled
 paymentOptions = List();
 paymentOptionsMap = Map();
@@ -74,6 +76,7 @@ gatewayMap = Map();
 gatewayMap.put("payment_gateways",paymentOptions);
 invoice.put("payment_options",gatewayMap);
 //info "invoice==" + invoice;
+// Create Invoice
 createInvoice = zoho.invoice.create("invoices",orgId,invoice);
 info createInvoice;
 //If the invoice was created successfully, we send the email with the invoice and payment options via a Zoho Books API call
