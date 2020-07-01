@@ -1,30 +1,24 @@
-contactRecord = zoho.crm.getRecordById("Contacts", CONTACT_ID);
+// Start by defining all the variables that you will need throughout the function, pulled from the CRM Contact record. Then call the Zoho Books Organizations API. You will have to do some sort of search based off name or something else if you have more than one organization.
+contactRecord = zoho.crm.getRecordById("Contacts",CONTACT_ID);
 info contactRecord;
-	email = contactRecord.get("Email");
-	firstName = contactRecord.get("First_Name");
-	lastName = contactRecord.get("Last_Name");
-	participationCode = contactRecord.get("MRWPC_Participation_Code");
-	discount = contactRecord.get("Course_Discount");
-	
+email = contactRecord.get("Email");
+firstName = contactRecord.get("First_Name");
+lastName = contactRecord.get("Last_Name");
+otherInfo = contactRecord.get("other_custom_field");
 getOrganizations = invokeurl
-		[
-			url : "https://books.zoho.com/api/v3/organizations"
-			type :GET
-			connection:"zohobooks"
-		];
+[
+	url :"https://books.zoho.com/api/v3/organizations"
+	type :GET
+	connection:"zohobooks"
+];
 info getOrganizations;
-//will have to do some sort of search if you have more than one organization based off name or something else
 orgId = getOrganizations.get("organizations").get(0).get("organization_id");
 info orgId;
-
+// Now that we have our defined variables, we search the Invoices modules/app for Contacts with a matching email address. It should return a list of contacts (just one)
 searchParam = {"email":email};
-//everything in Zoho Finance requires an org ID as a parameter
 invoiceContact = zoho.invoice.getRecords("Contacts",orgId,searchParam).get("contacts");
-/*just a Boolean return value upon which to base our If/Else statement. If it's empty, need to create the
-contact record in the Invoices app/module */
 contactSearch = invoiceContact.isEmpty();
-	
-if(contactSearch == false) //(not empty, go ahead and create the invoice)
+if(contactSearch == false) 	//(not empty, get the primary contact person's info for the Invoice)
 {
 	specificContact = invoiceContact.get(0);
 	contactId = specificContact.get("contact_id");
@@ -39,7 +33,7 @@ if(contactSearch == false) //(not empty, go ahead and create the invoice)
 		}
 	}
 }
-else
+else //(list is empty, create the Contact and Contact person in Books and get the info for the Invoice)
 {
 	crmContactInfo = Map();
 	crmContactInfo.put("email",email);
@@ -60,49 +54,47 @@ else
 			contactPID = r.get("contact_person_id");
 		}
 	}
-	info contactPID
+	info contactPID;
 }
-
-	invoice = Map();
-	invoice.put("customer_id",contactId);
-	invoice.put("date",today);
-	cpList = List();
-	cpList.add(contactPID);
-	invoice.put("contact_persons",cpList);
-	//in the future, show how to feed line items in from CRM
-	invoice.put("line_items",{{"item_id":"2062836000000068237","quantity":"1","discount":discount}});
-	
-	//telling it which payment gateways are enabled
-	paymentOptions = List();
-	paymentOptionsMap = Map();
-	//this payment gateway can be edited/improved
-	paymentOptionsMap.put("gateway_name","paypal");
-	paymentOptionsMap.put("additional_field1","standard");
-	paymentOptions.add(paymentOptionsMap);
-	gatewayMap = Map();
-	gatewayMap.put("payment_gateways",paymentOptions);
-	invoice.put("payment_options",gatewayMap);
-	//info "invoice==" + invoice;
-	createInvoice = zoho.invoice.create("invoices",orgId,invoice);
-	info createInvoice;
-	code = createInvoice.get("code");
-	if(code == 0)
-	{
-		emailList = List();
-		emailList.add(email);
-		invoiceInfo = createInvoice.get("invoice");
-		invoiceId = invoiceInfo.get("invoice_id");
-		info invoiceId;
-		json = Map();
-		json.put("to_mail_ids",emailList);
-		params = Map();
-		params.put("JSONString",json);
-		
-		emailInvoice = invokeurl
-		[
-			url :"https://books.zoho.com/api/v3/invoices/" + invoiceId + "/email?organization_id=" + orgId
-			type :POST
-			parameters:params
-			connection:"zohobooks"
-		];
-		info emailInvoice.get("message");
+invoice = Map();
+invoice.put("customer_id",contactId);
+invoice.put("date",today);
+cpList = List();
+cpList.add(contactPID);
+invoice.put("contact_persons",cpList);
+//in the future, show how to feed line items in from CRM or ask Kurt. Some of this was built by Zoho for the USU system. So, how do we generalize it to other Zoho accounts?
+invoice.put("line_items",{{"item_id":"2062836000000068237","quantity":"1","invoice_custom_field":otherInfo}});
+//Here, tell it which payment gateways are enabled
+paymentOptions = List();
+paymentOptionsMap = Map();
+paymentOptionsMap.put("gateway_name","paypal");
+paymentOptionsMap.put("additional_field1","standard");
+paymentOptions.add(paymentOptionsMap);
+gatewayMap = Map();
+gatewayMap.put("payment_gateways",paymentOptions);
+invoice.put("payment_options",gatewayMap);
+//info "invoice==" + invoice;
+createInvoice = zoho.invoice.create("invoices",orgId,invoice);
+info createInvoice;
+//If the invoice was created successfully, we send the email with the invoice and payment options via a Zoho Books API call
+code = createInvoice.get("code");
+if(code == 0)
+{
+	emailList = List();
+	emailList.add(email);
+	invoiceInfo = createInvoice.get("invoice");
+	invoiceId = invoiceInfo.get("invoice_id");
+	info invoiceId;
+	json = Map();
+	json.put("to_mail_ids",emailList);
+	params = Map();
+	params.put("JSONString",json);
+	emailInvoice = invokeurl
+	[
+		url :"https://books.zoho.com/api/v3/invoices/" + invoiceId + "/email?organization_id=" + orgId
+		type :POST
+		parameters:params
+		connection:"zohobooks"
+	];
+	info emailInvoice.get("message");
+}
