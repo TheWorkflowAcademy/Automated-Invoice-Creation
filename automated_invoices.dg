@@ -4,7 +4,7 @@ info contactRecord;
 email = contactRecord.get("Email");
 firstName = contactRecord.get("First_Name");
 lastName = contactRecord.get("Last_Name");
-otherInfo = contactRecord.get("other_custom_field");
+otherInfo = contactRecord.get("other_custom_field"); //other info as needed
 getOrganizations = invokeurl
 [
 	url :"https://books.zoho.com/api/v3/organizations"
@@ -14,13 +14,13 @@ getOrganizations = invokeurl
 info getOrganizations;
 orgId = getOrganizations.get("organizations").get(0).get("organization_id");
 info orgId;
-// Now that we have our defined variables, we search the Invoices modules/app for Contacts with a matching email address. It should return a list of contacts (just one)
+// Now that we have our defined variables, we search the Invoices module for Contacts with a matching email address. It should return a list of contacts (just one)
 searchParam = {"email":email};
 contactSearch = zoho.invoice.getRecords("Contacts",orgId,searchParam).get("contacts");
 contactId = null;
 contactPersonId = null;
-// Check If Contact is Found
-if(!contactSearch.isEmpty()) 	//(not empty, get the primary contact person's info for the Invoice)
+// Check If Contact is Found. If not, we query the primary contact's info to put on the invoice
+if(!contactSearch.isEmpty())
 {
 	// Get Contact Record
 	contact = contactSearch.get(0);
@@ -55,18 +55,16 @@ else //(list is empty, create the Contact and Contact person in Books and get th
 	contactPersonId = contactPerson.get("contact_person_id");
 }
 
-// Create New Invoice
+// Create New Invoice map
 invoice = Map();
 invoice.put("customer_id",contactId);
 invoice.put("date",today);
 contactPersonsList = List();
 contactPersonsList.add(contactPersonId);
 invoice.put("contact_persons",contactPersonsList);
-
-invoice.put("line_items",{{"item_id":"2062836000000068237","quantity":"1","invoice_custom_field":otherInfo}});
+invoice.put("line_items",{{"item_id":"2062836000120068237","quantity":"1","invoice_custom_field":otherInfo}});
 
 // Set Payment Options
-//Here, tell it which payment gateways are enabled
 paymentOptions = List();
 paymentOptionsMap = Map();
 paymentOptionsMap.put("gateway_name","paypal");
@@ -75,10 +73,11 @@ paymentOptions.add(paymentOptionsMap);
 gatewayMap = Map();
 gatewayMap.put("payment_gateways",paymentOptions);
 invoice.put("payment_options",gatewayMap);
-//info "invoice==" + invoice;
+
 // Create Invoice
 createInvoice = zoho.invoice.create("invoices",orgId,invoice);
 info createInvoice;
+
 //If the invoice was created successfully, we send the email with the invoice and payment options via a Zoho Books API call
 code = createInvoice.get("code");
 if(code == 0)
