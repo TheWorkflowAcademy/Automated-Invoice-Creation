@@ -1,4 +1,4 @@
-# Automated and Send Out Invoices from CRM
+# Automate and Send Out Invoices from CRM
 The main idea here is, at some defined trigger in the CRM, to automatically create an invoice and send it out via email.
 
 ## Configuration
@@ -7,11 +7,11 @@ The trigger needs to be set up via a workflow rule or blueprint transition, i.e.
 You will have to create the connection between CRM and the Finance Suite. In CRM, go to Setup >> Developer Space >> Connections to create and name the connection.
 
 ## Walkthrough
-The first few lines define variables needed in the rest of the function, pulling information from the (CRM) Contact record and using the Zoho Books Organizations API to get the Organization ID. This field is frequently used with Deluge commands in Books.
+The first few lines define variables needed in the rest of the function, pulling information from the (CRM) Contact record and using the Zoho Books Organizations API to get the Organization ID. This field is frequently used with Deluge commands in the Zoho Finance Suite. Zoho provided the ability to create and manage multiple organizations in Books, and this specific ID is used in most Deluge commands in Books.
 
-A quick search checks the Customers (but the API name is "contacts") module for contact's email. If it is empty, we go ahead and create the Customer, and if not, we just pull the Contact Person information for the Invoice.
+A quick search checks the Customers (but the API name is "contacts") module for the contact's email. If it is empty, we go ahead and create the Customer, and if not, we just pull the Contact Person information for the Invoice.
 
-We create maps for the new invoice and add the payment options to that. Here, there are many ways to customize this function further. Some ideas are to create a sync between Books-CRM and the Items and Products module. Then, you can choose the products in CRM and via a query to the Items module (in Books), add those line items to the Invoice. You can simply leave it as it is and specify a single item if needed. You can change the payment options.
+We create maps for the new invoice and add the payment options to that. Here, there are many ways to customize this function further. Some ideas are to create a sync between Books-CRM and the Items and Products module. Then, you can choose the products in CRM and via a query to the Items module (in Books), add those line items to the Invoice. You can simply leave it as it is and specify a single item if needed (as is done here). You can also customize the payment options.
 
 After the Invoice is created successfully, `if(code==0)`, the last API call sends off the email with the created Invoice.
 
