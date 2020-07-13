@@ -55,21 +55,38 @@ else //(list is empty, create the Contact and Contact person in Books and get th
 	contactPersonId = contactPerson.get("contact_person_id");
 }
 
-// Create New Invoice map
+// Create New Invoice map and select a specific template if needed
 invoice = Map();
 invoice.put("customer_id",contactId);
 invoice.put("date",today);
+invoice.put("template_id","your_templateId");
 contactPersonsList = List();
 contactPersonsList.add(contactPersonId);
 invoice.put("contact_persons",contactPersonsList);
 invoice.put("line_items",{{"item_id":"2062836000120068237","quantity":"1","invoice_custom_field":otherInfo}});
 
-// Set Payment Options
+//create a map for custom fields and add them to the invoice
+customList = List();
+customField1 = Map();
+customField1.put("label","your_label");
+customField1.put("value", ifnull(your_value, ""));
+customList.add(customField1);
+// // for second custom field
+// customField2 = Map();
+// customField2.put("label","your_2nd_label");
+// customField2.put("value",ifnull(your_2nd_value,""));
+// customList.add(customField2);
+invoice.put("custom_fields", customList);
+
+// Set Payment Options - this code enables both Paypal and Stripe, but you can of course customize it
 paymentOptions = List();
-paymentOptionsMap = Map();
-paymentOptionsMap.put("gateway_name","paypal");
-paymentOptionsMap.put("additional_field1","standard");
-paymentOptions.add(paymentOptionsMap);
+paypalMap = Map();
+paypalMap.put("gateway_name","paypal");
+paypalMap.put("additional_field1","standard");
+stripeMap = Map();
+stripeMap.put("gateway_name","stripe");
+paymentOptions.add(paypalMap);
+paymentOptions.add(stripeMap);
 gatewayMap = Map();
 gatewayMap.put("payment_gateways",paymentOptions);
 invoice.put("payment_options",gatewayMap);
